@@ -44,12 +44,13 @@ class VGGDataset(torch.utils.data.Dataset):
         self.files.sort()
         self.img_size = img_size
         self.transform = transforms.Compose([transforms.Resize((img_size, img_size)), transforms.ToTensor(),])
-
+        self.filenames = [os.path.splitext(os.path.basename(f))[0] for f in self.files]
     def __getitem__(self, index):
         file = self.files[index]
+        filename = self.filenames[index]
         image = Image.open(file).convert('RGB')
         x = self.transform(image)
-        return x
+        return x, filename
 
     def __len__(self):
         return len(self.files)
@@ -114,14 +115,13 @@ class ImageEditor:
         netArc = netArc_checkpoint['model'].module
         self.netArc = netArc.to(self.device).eval()
 
-        self.spNorm = SpecificNorm()
+        self.spNorm = SpecificNorm().to(self.device)
         self.netSeg = BiSeNet(n_classes=19).to(self.device)
         self.netSeg.load_state_dict(torch.load('./checkpoints/FaceParser.pth'))
         self.netSeg.eval()
 
         self.netGaze = Gaze_estimator().to(self.device)
-        # self.fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False)
-        self.fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, flip_input=False)
+        self.fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, flip_input=False, device=f'cuda:{self.args.gpu_id}')
         print('done')
         
 
@@ -315,13 +315,21 @@ class ImageEditor:
         path = self.args.output_path
         for step in range(length):
             try:
-                self.src_image = next(src_iter).to(self.device).float()
-                self.targ_image = next(targ_iter).to(self.device).float()
+                self.src_image, src_filename = next(src_iter)
+                self.src_image = self.src_image.to(self.device).float()
+                self.targ_image, targ_filename = next(targ_iter)
+                self.targ_image = self.targ_image.to(self.device).float()
+                # 确保源图像和目标图像的文件名一致
+                assert src_filename == targ_filename, f"源图像和目标图像文件名不匹配: {src_filename} vs {targ_filename}"
+                current_filename = src_filename[0]  # 因为batch_size=1
             except StopIteration:
-                src_iter        = iter(src_loader)
-                targ_iter       = iter(targ_loader)
-                self.src_image  = next(src_iter).to(self.device).float()
-                self.targ_image = next(targ_iter).to(self.device).float()
+                src_iter = iter(src_loader)
+                targ_iter = iter(targ_loader)
+                self.src_image, src_filename = next(src_iter)
+                self.src_image = self.src_image.to(self.device).float()
+                self.targ_image, targ_filename = next(targ_iter)
+                self.targ_image = self.targ_image.to(self.device).float()
+                current_filename = src_filename[0]
 
             targ_mask = self.targ_image.detach().clone()
             targ_mask = transforms.Resize((512,512))(targ_mask)
@@ -342,9 +350,9 @@ class ImageEditor:
             self.src_image  = self.src_image  * 2.0 - 1.0
             self.targ_image = self.targ_image * 2.0 - 1.0
 
-            self.args.output_path = path + '/' + str(step)
+            self.args.output_path = os.path.join(path, current_filename)
             os.makedirs(self.args.output_path, exist_ok=True)
-            self.RankPath = path + '/Rank'+ str(step) + '/'
+            self.RankPath = path + f'/Rank_{current_filename}'
             os.makedirs(self.RankPath, exist_ok=True)
 
             save_image_interval = self.diffusion.num_timesteps // 5
