@@ -21,3 +21,4 @@ class Gaze_estimator(nn.Module):
 
 if __name__ == '__main__':
     model = Gaze_estimator()
+    # pass

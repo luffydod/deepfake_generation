@@ -3,12 +3,12 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-def extract_frames_from_video(target_id, video_name, data_dir, output_dir, frame_indices=None):
+def extract_frames_from_video(src_id, video_name, data_dir, output_dir, frame_indices=None):
     """
     从视频中提取指定帧并保存
     
     Args:
-        target_id: 目标ID
+        src_id: 要换取的人物脸型ID
         video_name: 视频名称
         data_dir: 数据目录
         output_dir: 输出目录
@@ -52,7 +52,7 @@ def extract_frames_from_video(target_id, video_name, data_dir, output_dir, frame
             continue
         
         # 保存帧图像
-        frame_filename = f"{target_id}-{video_name}_{frame_idx:05d}.png"  # 例如 id0_0000_00000.png
+        frame_filename = f"{src_id}-{video_name}_{frame_idx:05d}.png"  # 例如 id0_0000_00000.png
         save_path = os.path.join(output_dir, frame_filename)
         
         cv2.imwrite(save_path, frame)
@@ -88,13 +88,13 @@ def parse_image_list(image_list_path):
                 continue
             
             # 获取目标视频ID和帧索引
-            source_id = parts[0]
-            target_id = parts[1]
+            targ_id = parts[0]
+            src_id = parts[1]
             video_seq = parts[2]
             frame_idx = int(parts[3].split('.')[0])
             
             # 构建视频名称
-            video_name = f"{target_id}-{source_id}_{video_seq}"
+            video_name = f"{src_id}-{targ_id}_{video_seq}"
             
             # 添加到字典
             if video_name not in frames_to_extract:
@@ -124,10 +124,10 @@ def main():
     # 提取每个视频的指定帧
     total_extracted = 0
     for video_name, frame_indices in tqdm(frames_to_extract.items(), desc="提取视频帧"):
-        target_id = video_name.split('-')[0]
+        src_id = video_name.split('-')[0]
         v_name = video_name.split('-')[1]
         # 提取指定帧
-        extracted = extract_frames_from_video(target_id, v_name, data_dir, output_dir, frame_indices)
+        extracted = extract_frames_from_video(src_id, v_name, data_dir, output_dir, frame_indices)
         total_extracted += extracted
         
         print(f"已从 {v_name}.mp4 提取 {extracted} 帧")

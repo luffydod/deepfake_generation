@@ -19,3 +19,17 @@ pip install opencv-python==4.6.0.66 \
     matplotlib
 
 ```
+
+## data process
+
+根据 `data/image_list.txt` 要求，从 `data/Celeb-real` 中截取视频帧，作为目标图像，输出在 `data/targ` 目录。
+
+```bash
+    python target_extract.py
+```
+
+提取要换取的面部图像，id{0-58}，文件命名根据targ目录保持同步，输出在 `data/src` 目录。
+
+```bash
+    python src_extract.py
+```

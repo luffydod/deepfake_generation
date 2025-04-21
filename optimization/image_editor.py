@@ -448,3 +448,4 @@ class ImageEditor:
                                 path=visualization_path,
                                 distance=formatted_distance,
                             )
+                # break
