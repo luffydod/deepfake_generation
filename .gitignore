@@ -1,0 +1,13 @@
+data/Celeb-real
+data/Celeb-synthesis
+data/YouTube-real
+data/Celeb-DF-v2.zip
+
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+
+checkpoints
