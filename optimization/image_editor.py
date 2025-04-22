@@ -440,7 +440,7 @@ class ImageEditor:
 
                         if j == total_steps:
                             path_friendly_distance = formatted_distance.replace(".", "")
-                            pred_image_pil.save(self.RankPath+ str(path_friendly_distance) + '.png')
+                            pred_image_pil.save(self.RankPath + '/' + str(path_friendly_distance) + '.png')
                             pred_image_pil.save(self.args.output_path + '_' + str(iteration_number)+'.png')
                         intermediate_samples[0].append(pred_image_pil)
 

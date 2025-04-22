@@ -76,6 +76,36 @@ def extract_face_from_video(video_path, output_dir, person_id):
         enhanced_lab = cv2.merge((cl, a, b))
         enhanced_face = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
         
+        # 调整图像大小为256x256或512x512
+        target_size = 256  # 可以修改为512
+        current_height, current_width = enhanced_face.shape[:2]
+        
+        # 计算缩放比例，确保最短边等于目标大小
+        scale = target_size / min(current_height, current_width)
+        
+        # 调整大小，保持纵横比
+        new_height = int(current_height * scale)
+        new_width = int(current_width * scale)
+        resized_face = cv2.resize(enhanced_face, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        
+        # 创建正方形画布，居中放置人脸
+        square_img = np.zeros((target_size, target_size, 3), dtype=np.uint8)
+        
+        # 计算偏移量以居中放置调整大小后的人脸
+        y_offset = max(0, (target_size - new_height) // 2)
+        x_offset = max(0, (target_size - new_width) // 2)
+        
+        # 如果调整后的人脸超过目标大小，需要裁剪
+        y_start_src = max(0, (new_height - target_size) // 2)
+        x_start_src = max(0, (new_width - target_size) // 2)
+        
+        # 计算可以复制的高度和宽度
+        copy_height = min(new_height - y_start_src, target_size - y_offset)
+        copy_width = min(new_width - x_start_src, target_size - x_offset)
+        
+        # 将人脸放入正方形画布
+        square_img[y_offset:y_offset+copy_height, x_offset:x_offset+copy_width] = resized_face[y_start_src:y_start_src+copy_height, x_start_src:x_start_src+copy_width]
+        
         # 获取 data/targ/ 中以 person_id 开头的所有文件名
         targ_pattern = f"data/targ/{person_id}-*.png"
         targ_files = glob.glob(targ_pattern)
@@ -86,14 +116,14 @@ def extract_face_from_video(video_path, output_dir, person_id):
                 # 提取文件名，保持相同的命名格式
                 file_name = os.path.basename(targ_file)
                 face_path = os.path.join(output_dir, file_name)
-                cv2.imwrite(face_path, enhanced_face)
+                cv2.imwrite(face_path, square_img)
                 saved_files.append(face_path)
             return saved_files
         else:
             # 如果没有找到匹配的源文件，使用默认命名方式
             print(f"警告：未找到与 {targ_pattern} 匹配的源文件，使用默认命名")
             # face_path = os.path.join(output_dir, f"{person_id}.png")
-            # cv2.imwrite(face_path, enhanced_face)
+            # cv2.imwrite(face_path, square_img)
             # return [face_path]
     
     return None
