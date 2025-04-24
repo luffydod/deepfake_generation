@@ -42,7 +42,7 @@ def extract_and_rename_images():
         best_image = images[0]
         
         # 新的文件名格式: id6_id2_0005_00120.png
-        new_filename = f"id{id_b}_id{id_a}_{c}_{d}.png"
+        new_filename = f"id{id_a}-id{id_b}_{c}_{d}.png"
         
         # 复制并重命名文件到输出目录
         shutil.copy2(best_image, output_extract_dir / new_filename)
