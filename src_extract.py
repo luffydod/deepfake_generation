@@ -1,11 +1,13 @@
 import os
 import cv2
 import numpy as np
-import face_recognition
 from tqdm import tqdm
 import glob
+import torch
+from facenet_pytorch import MTCNN
+from PIL import Image
 
-def extract_face_from_video(video_path, output_dir, person_id):
+def extract_face_from_video(video_path, output_dir, person_id, target_size=256, scale=1.3):
     """从视频中提取高质量人脸"""
     # 创建输出目录
     os.makedirs(output_dir, exist_ok=True)
@@ -18,10 +20,13 @@ def extract_face_from_video(video_path, output_dir, person_id):
     
     # 获取视频信息
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
     
     # 定义采样点 - 均匀地从视频中选择10个时间点
     sample_points = np.linspace(0, frame_count-1, 10, dtype=int)
+    
+    # 初始化MTCNN模型用于人脸检测
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    mtcnn = MTCNN(margin=0, thresholds=[0.6, 0.7, 0.7], device=device)
     
     best_face = None
     best_face_size = 0
@@ -36,31 +41,45 @@ def extract_face_from_video(video_path, output_dir, person_id):
         if not ret:
             continue
         
+        # 转换为RGB用于人脸检测
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        pil_img = Image.fromarray(rgb_frame)
+        
         # 检测人脸
-        face_locations = face_recognition.face_locations(frame)
-        if not face_locations:
+        boxes, probs, points = mtcnn.detect(pil_img, landmarks=True)
+        
+        # 如果未检测到人脸，跳过当前帧
+        if boxes is None or len(boxes) == 0:
             continue
         
-        # 选择最大的人脸
-        face_areas = [(right-left)*(bottom-top) for top, right, bottom, left in face_locations]
-        largest_face_idx = np.argmax(face_areas)
-        top, right, bottom, left = face_locations[largest_face_idx]
+        # 选择概率最高的人脸
+        best_idx = np.argmax(probs)
+        box = boxes[best_idx]
+        
+        # 获取人脸边界框
+        xmin, ymin, xmax, ymax = [int(b) for b in box]
         
         # 计算人脸大小
-        face_size = (right-left)*(bottom-top)
+        face_size = (xmax - xmin) * (ymax - ymin)
         
         # 如果这个人脸比之前找到的更大，就更新
         if face_size > best_face_size:
-            # 扩大人脸区域以包含更多上下文
-            height, width = frame.shape[:2]
-            margin = int((right - left) * 0.3)  # 30% 边距
+            # 计算扩展后的正方形边界框
+            w = xmax - xmin
+            h = ymax - ymin
+            size_bb = int(max(w, h) * scale)
+            center_x, center_y = (xmin + xmax) // 2, (ymin + ymax) // 2
             
-            extended_top = max(0, top - margin)
-            extended_bottom = min(height, bottom + margin)
-            extended_left = max(0, left - margin)
-            extended_right = min(width, right + margin)
+            # 边界检查，确保裁剪区域在图像内
+            xmin = max(int(center_x - size_bb // 2), 0)
+            ymin = max(int(center_y - size_bb // 2), 0)
             
-            best_face = frame[extended_top:extended_bottom, extended_left:extended_right]
+            # 检查裁剪区域大小是否超出图像边界
+            size_bb = min(frame.shape[1] - xmin, size_bb)
+            size_bb = min(frame.shape[0] - ymin, size_bb)
+            
+            # 裁剪人脸
+            best_face = frame[ymin:ymin + size_bb, xmin:xmin + size_bb]
             best_face_size = face_size
     
     # 释放视频
@@ -76,35 +95,8 @@ def extract_face_from_video(video_path, output_dir, person_id):
         enhanced_lab = cv2.merge((cl, a, b))
         enhanced_face = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
         
-        # 调整图像大小为256x256或512x512
-        target_size = 256  # 可以修改为512
-        current_height, current_width = enhanced_face.shape[:2]
-        
-        # 计算缩放比例，确保最短边等于目标大小
-        scale = target_size / min(current_height, current_width)
-        
-        # 调整大小，保持纵横比
-        new_height = int(current_height * scale)
-        new_width = int(current_width * scale)
-        resized_face = cv2.resize(enhanced_face, (new_width, new_height), interpolation=cv2.INTER_AREA)
-        
-        # 创建正方形画布，居中放置人脸
-        square_img = np.zeros((target_size, target_size, 3), dtype=np.uint8)
-        
-        # 计算偏移量以居中放置调整大小后的人脸
-        y_offset = max(0, (target_size - new_height) // 2)
-        x_offset = max(0, (target_size - new_width) // 2)
-        
-        # 如果调整后的人脸超过目标大小，需要裁剪
-        y_start_src = max(0, (new_height - target_size) // 2)
-        x_start_src = max(0, (new_width - target_size) // 2)
-        
-        # 计算可以复制的高度和宽度
-        copy_height = min(new_height - y_start_src, target_size - y_offset)
-        copy_width = min(new_width - x_start_src, target_size - x_offset)
-        
-        # 将人脸放入正方形画布
-        square_img[y_offset:y_offset+copy_height, x_offset:x_offset+copy_width] = resized_face[y_start_src:y_start_src+copy_height, x_start_src:x_start_src+copy_width]
+        # 调整图像大小为目标尺寸
+        resized_face = cv2.resize(enhanced_face, (target_size, target_size), interpolation=cv2.INTER_AREA)
         
         # 获取 data/targ/ 中以 person_id 开头的所有文件名
         targ_pattern = f"data/targ/{person_id}-*.png"
@@ -116,14 +108,14 @@ def extract_face_from_video(video_path, output_dir, person_id):
                 # 提取文件名，保持相同的命名格式
                 file_name = os.path.basename(targ_file)
                 face_path = os.path.join(output_dir, file_name)
-                cv2.imwrite(face_path, square_img)
+                cv2.imwrite(face_path, resized_face)
                 saved_files.append(face_path)
             return saved_files
         else:
             # 如果没有找到匹配的源文件，使用默认命名方式
             print(f"警告：未找到与 {targ_pattern} 匹配的源文件，使用默认命名")
             # face_path = os.path.join(output_dir, f"{person_id}.png")
-            # cv2.imwrite(face_path, square_img)
+            # cv2.imwrite(face_path, resized_face)
             # return [face_path]
     
     return None
@@ -132,6 +124,7 @@ def main():
     # 设置路径
     data_dir = "data/Celeb-real"
     output_dir = "data/src"
+    target_size = 256  # 输出分辨率，可设置为256或512
     
     # 提取59个ID的人脸
     successful_extractions = 0
@@ -155,7 +148,7 @@ def main():
             print(f"警告：找不到ID为 {person_id} 的任何视频")
             continue
         
-        results = extract_face_from_video(video_path, output_dir, person_id)
+        results = extract_face_from_video(video_path, output_dir, person_id, target_size=target_size, scale=1.3)
         
         # 如果第一个视频没有找到好的人脸，尝试其他视频
         if not results:
@@ -163,7 +156,7 @@ def main():
             for seq in range(10):
                 alt_video_path = os.path.join(data_dir, f"{person_id}_{seq:04d}.mp4")
                 if alt_video_path != video_path and os.path.exists(alt_video_path):
-                    results = extract_face_from_video(alt_video_path, output_dir, person_id)
+                    results = extract_face_from_video(alt_video_path, output_dir, person_id, target_size=target_size, scale=1.3)
                     if results:
                         print(f"在备选视频 {alt_video_path} 中找到了好的人脸")
                         break
