@@ -16,7 +16,7 @@ def extract_frames_from_video(src_id, video_name, data_dir, output_dir, frame_in
         data_dir: 数据目录
         output_dir: 输出目录
         frame_indices: 要提取的帧索引列表，如果为None则提取所有帧
-        target_size: 输出图像的分辨率，可选256或512
+        target_size: 输出图像的分辨率
         scale: 人脸扩展比例，控制裁切区域大小
     
     Returns:
@@ -177,7 +177,7 @@ def main():
     data_dir = "data/Celeb-real"  # 原始视频目录
     output_dir = "data/targ"  # 输出目录
     image_list_path = "data/image_list.txt"  # 需要提取的帧列表
-    target_size = 256  # 输出分辨率，可设置为256或512
+    target_size = 128  # 输出分辨率
     
     # 解析image_list.txt
     print("解析image_list.txt...")

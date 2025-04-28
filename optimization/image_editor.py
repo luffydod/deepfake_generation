@@ -95,7 +95,7 @@ class ImageEditor:
         self.model.load_state_dict(
             torch.load(
                 "checkpoints/Model.pt",
-                map_location="cpu",
+                map_location=f'cuda:{self.args.gpu_id}',
             )
         )
         self.model.requires_grad_(False).eval().to(self.device)

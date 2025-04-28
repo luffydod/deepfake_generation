@@ -124,7 +124,7 @@ def main():
     # 设置路径
     data_dir = "data/Celeb-real"
     output_dir = "data/src"
-    target_size = 256  # 输出分辨率，可设置为256或512
+    target_size = 256  # 输出分辨率
     
     # 提取59个ID的人脸
     successful_extractions = 0
