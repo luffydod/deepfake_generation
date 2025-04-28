@@ -7,6 +7,10 @@ import torch
 from facenet_pytorch import MTCNN
 from PIL import Image
 
+# 初始化MTCNN模型用于人脸检测
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+mtcnn = MTCNN(margin=0, thresholds=[0.6, 0.7, 0.7], device=device)
+
 def extract_face_from_video(video_path, output_dir, person_id, target_size=256, scale=1.3):
     """从视频中提取高质量人脸"""
     # 创建输出目录
@@ -23,10 +27,6 @@ def extract_face_from_video(video_path, output_dir, person_id, target_size=256, 
     
     # 定义采样点 - 均匀地从视频中选择10个时间点
     sample_points = np.linspace(0, frame_count-1, 10, dtype=int)
-    
-    # 初始化MTCNN模型用于人脸检测
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    mtcnn = MTCNN(margin=0, thresholds=[0.6, 0.7, 0.7], device=device)
     
     best_face = None
     best_face_size = 0
