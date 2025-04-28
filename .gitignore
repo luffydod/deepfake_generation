@@ -2,6 +2,7 @@ data/Celeb-real
 data/Celeb-synthesis
 data/YouTube-real
 data/Celeb-DF-v2.zip
+data/record
 
 __pycache__
 *.pyc
@@ -22,3 +23,5 @@ output6
 
 output_extract
 visualization
+
+tmp

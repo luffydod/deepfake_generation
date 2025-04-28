@@ -104,6 +104,26 @@ def extract_frames_from_video(src_id, video_name, data_dir, output_dir, frame_in
         save_path = os.path.join(output_dir, frame_filename)
         
         cv2.imwrite(save_path, face_resized)
+        
+        # 保存原始帧和坐标信息
+        # 创建记录目录
+        record_dir = os.path.join("data/record", f"{src_id}-{video_name}_{frame_idx:05d}")
+        os.makedirs(record_dir, exist_ok=True)
+        # 保存原始帧
+        raw_path = os.path.join(record_dir, "raw.png")
+        cv2.imwrite(raw_path, frame)
+        
+        # 保存坐标和缩放信息
+        pos_path = os.path.join(record_dir, "pos.txt")
+        with open(pos_path, 'w') as f:
+            f.write(f"xmin={xmin}\n")
+            f.write(f"ymin={ymin}\n")
+            f.write(f"size_bb={size_bb}\n")
+            f.write(f"target_size={target_size}\n")
+            f.write(f"scale={scale}\n")
+            f.write(f"original_width={frame.shape[1]}\n")
+            f.write(f"original_height={frame.shape[0]}\n")
+        
         extracted_count += 1
     
     # 释放视频对象
